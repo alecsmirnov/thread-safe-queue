@@ -85,13 +85,13 @@ void tsQueueSet(TSQueue* Q, void* data) {
             Q->tail->next = new_node;
             Q->tail = new_node;
         }
-        else {
+        else
             Q->head = Q->tail = new_node;
 
-            pthread_cond_signal(&Q->get_cond);
-        }
-
         ++Q->size;
+
+        if (bitCheck(Q->wait_behavior, TS_WAIT_GET_BIT))
+            pthread_cond_signal(&Q->get_cond);
     }
 
     tsQueueUnlock(Q);
@@ -125,7 +125,8 @@ void* tsQueueGet(TSQueue* Q) {
 
         --Q->size;
 
-        pthread_cond_signal(&Q->set_cond);
+        if (bitCheck(Q->wait_behavior, TS_WAIT_SET_BIT))
+            pthread_cond_signal(&Q->set_cond);
     }
 
     tsQueueUnlock(Q);
@@ -133,9 +134,7 @@ void* tsQueueGet(TSQueue* Q) {
     return data;
 }
 
-void tsQueueClear(TSQueue* Q) {
-    tsQueueLock(Q);
-
+static void tsQueueClearData(TSQueue* Q) {
     if (!tsQueueIsEmpty(Q)) {
         TSQueueNode* iter = Q->head;
 
@@ -153,6 +152,14 @@ void tsQueueClear(TSQueue* Q) {
         Q->head = Q->tail = NULL;
         Q->size = 0;
     }
+}
+
+void tsQueueClear(TSQueue* Q) {
+    tsQueueLock(Q);
+
+    tsQueueClearData(Q);
+    if (bitCheck(Q->wait_behavior, TS_WAIT_SET_BIT))
+        pthread_cond_broadcast(&Q->set_cond);
 
     tsQueueUnlock(Q);
 }
@@ -160,7 +167,7 @@ void tsQueueClear(TSQueue* Q) {
 void tsQueueFree(TSQueue** Q) {
     tsQueueLock((*Q));
 
-    tsQueueClear((*Q));
+    tsQueueClearData((*Q));
     pthread_mutex_destroy(&(*Q)->mutex);
     pthread_cond_destroy(&(*Q)->set_cond);
     pthread_cond_destroy(&(*Q)->get_cond);
