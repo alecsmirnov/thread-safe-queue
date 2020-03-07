@@ -32,6 +32,8 @@ void tsQueueInit(TSQueue** Q, size_t max_size, size_t data_size,
     (*Q)->free_func = free_func;
 
     (*Q)->wait_behavior = wait_behavior;
+    (*Q)->set_wait = true;
+    (*Q)->get_wait = true;
 
     int err = 0;
     err = pthread_mutex_init(&(*Q)->mutex, NULL);
@@ -60,27 +62,27 @@ static void tsQueueUnlock(TSQueue* Q) {
 }
 
 void tsQueueSet(TSQueue* Q, void* data) {
-    TSQueueNode* new_node = (TSQueueNode*)malloc(sizeof(TSQueueNode));
-    if (new_node == NULL)
-        throwErr("Error: new node out of memmory!");
-
-    new_node->data = malloc(Q->data_size);
-    if (new_node == NULL)
-        throwErr("Error: new node data out of memmory!");
-
-    memcpy(new_node->data, data, Q->data_size);
-    new_node->next = NULL;
-
     tsQueueLock(Q);
 
     if (bitCheck(Q->wait_behavior, TS_WAIT_SET_BIT))
-        while (Q->size == Q->max_size) {
+        while (tsQueueIsFull(Q) && Q->set_wait) {
             int err = pthread_cond_wait(&Q->set_cond, &Q->mutex);
             if (err != 0)
                 throwErr("Error: cannot wait on set cond variable!");
         }
 
-    if (Q->size < Q->max_size) {
+    if (!tsQueueIsFull(Q) && Q->set_wait) {
+        TSQueueNode* new_node = (TSQueueNode*)malloc(sizeof(TSQueueNode));
+        if (new_node == NULL)
+            throwErr("Error: new node out of memmory!");
+
+        new_node->data = malloc(Q->data_size);
+        if (new_node == NULL)
+            throwErr("Error: new node data out of memmory!");
+
+        memcpy(new_node->data, data, Q->data_size);
+        new_node->next = NULL;
+
         if (!tsQueueIsEmpty(Q)) {
             Q->tail->next = new_node;
             Q->tail = new_node;
@@ -103,13 +105,13 @@ void* tsQueueGet(TSQueue* Q) {
     tsQueueLock(Q);
 
     if (bitCheck(Q->wait_behavior, TS_WAIT_GET_BIT))
-        while (tsQueueIsEmpty(Q)) {
+        while (tsQueueIsEmpty(Q) && Q->get_wait) {
             int err = pthread_cond_wait(&Q->get_cond, &Q->mutex);
             if (err != 0)
                 throwErr("Error: cannot wait on get cond variable!");
         }
 
-    if (!tsQueueIsEmpty(Q)) {
+    if (!tsQueueIsEmpty(Q) && Q->get_wait) {
         data = Q->head->data;
         TSQueueNode* delete_node = Q->head;
 
@@ -132,6 +134,44 @@ void* tsQueueGet(TSQueue* Q) {
     tsQueueUnlock(Q);
 
     return data;
+}
+
+void tsQueueSetWaitPrepare(TSQueue* Q) {
+    tsQueueLock(Q);
+
+    Q->set_wait = true;
+    
+    tsQueueUnlock(Q);
+}
+
+void tsQueueGetWaitPrepare(TSQueue* Q) {
+    tsQueueLock(Q);
+
+    Q->get_wait = true;
+    
+    tsQueueUnlock(Q);
+}
+
+void tsQueueSetWaitExit(TSQueue* Q) {
+    tsQueueLock(Q);
+
+    if (bitCheck(Q->wait_behavior, TS_WAIT_SET_BIT)) {
+        Q->set_wait = false;
+        pthread_cond_broadcast(&Q->set_cond);
+    }
+    
+    tsQueueUnlock(Q);
+}
+
+void tsQueueGetWaitExit(TSQueue* Q) {
+    tsQueueLock(Q);
+
+    if (bitCheck(Q->wait_behavior, TS_WAIT_GET_BIT)) {
+        Q->get_wait = false;
+        pthread_cond_broadcast(&Q->get_cond);
+    }
+
+    tsQueueUnlock(Q);
 }
 
 static void tsQueueClearData(TSQueue* Q) {
@@ -165,15 +205,12 @@ void tsQueueClear(TSQueue* Q) {
 }
 
 void tsQueueFree(TSQueue** Q) {
-    tsQueueLock((*Q));
-
     tsQueueClearData((*Q));
+
     pthread_mutex_destroy(&(*Q)->mutex);
     pthread_cond_destroy(&(*Q)->set_cond);
     pthread_cond_destroy(&(*Q)->get_cond);
 
     free((*Q));
     (*Q) = NULL;
-
-    tsQueueUnlock((*Q));
 }

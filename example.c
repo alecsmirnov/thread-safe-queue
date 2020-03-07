@@ -1,33 +1,57 @@
 #include <stdio.h>
+#include <unistd.h>
+#include <pthread.h>
 
 #include "tsqueue.h"
 
-int main(int argc, char* argv[]) {
-    int val = 0;
+#define THREADS_COUNT 4
 
-    TSQueue* Q = NULL;
-    tsQueueInit(&Q, TSQUEUE_SIZE_MAX, sizeof(int), NO_FREE_FUNC, TS_NO_WAIT);
+void* getThread(void* arg) {
+    TSQueue* Q = (TSQueue*)arg;
 
-    // Will be blocked at empty queue get
-    //tsQueueInit(&Q, TSQUEUE_SIZE_MAX, sizeof(int), NO_FREE_FUNC, TS_WAIT_GET);
+    void* data = NULL;
+    do {
+        data = tsQueueGet(Q);
+    } while (Q->get_wait && data);
+
+    printf("Closed\n");
+    pthread_exit(NULL);
+}
+
+void* closeThread(void* arg) {
+    TSQueue* Q = (TSQueue*)arg;
+
+    while (!tsQueueIsEmpty(Q))
+        sleep(1);
+
+    // Close waiting gets
+    tsQueueGetWaitExit(Q);
     
-    val = 1;
-    tsQueueSet(Q, (void*)&val);
-    val = 2;
-    tsQueueSet(Q, (void*)&val);
-    val = 3;
-    tsQueueSet(Q, (void*)&val);
-    val = 4;
-    tsQueueSet(Q, (void*)&val);
+    pthread_exit(NULL);
+}
 
-    printf("%d\n", *(int*)tsQueueGet(Q));
-    printf("%d\n", *(int*)tsQueueGet(Q));
-    printf("%d\n", *(int*)tsQueueGet(Q));
-    printf("%d\n", *(int*)tsQueueGet(Q));
+int main(int argc, char* argv[]) {
+    TSQueue* Q = NULL;
 
-    if ((int*)tsQueueGet(Q) == NULL)
-        printf("Empty\n");
+    // Shutdown when queue is empty/full
+    //tsQueueInit(&Q, TSQUEUE_SIZE_MAX, sizeof(int), NO_FREE_FUNC, TS_NO_WAIT);
 
-    printf("%zu\n", Q->size);
+    // Will wait for get until it receives a exit signal
+    tsQueueInit(&Q, TSQUEUE_SIZE_MAX, sizeof(int), NO_FREE_FUNC, TS_WAIT_GET);
+
+    for (int i = 0; i != THREADS_COUNT - 1; ++i)
+        tsQueueSet(Q, (void*)&i);
+
+    pthread_t threads[THREADS_COUNT];
+    for (uint8_t i = 0; i != THREADS_COUNT - 1; ++i)
+        pthread_create(&threads[i], NULL, getThread, (void*)Q);
+
+    pthread_create(&threads[THREADS_COUNT - 1], NULL, closeThread, (void*)Q);
+
+    for (uint8_t i = 0; i != THREADS_COUNT; ++i)
+        pthread_join(threads[i], NULL);
+
+    tsQueueFree(&Q);
+
     return 0;
 }
