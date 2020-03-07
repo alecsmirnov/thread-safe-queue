@@ -23,13 +23,22 @@ void tsQueueInit(TSQueue** Q, size_t max_size, size_t data_size,
     if ((*Q) == NULL) 
         throwErr("Error: out of memmory!");
 
+<<<<<<< HEAD
     (*Q)->head = (*Q)->tail = NULL;
+=======
+	(*Q)->head = (*Q)->tail = NULL;
+>>>>>>> 6f93a32f9193544716b5ff1da75bfb5dedd679d4
 
     (*Q)->size = 0;
     (*Q)->max_size = max_size;
 
+<<<<<<< HEAD
     (*Q)->data_size = data_size;
     (*Q)->free_func = free_func;
+=======
+	(*Q)->data_size = data_size;
+	(*Q)->free_func = free_func;
+>>>>>>> 6f93a32f9193544716b5ff1da75bfb5dedd679d4
 
     (*Q)->wait_behavior = wait_behavior;
 
@@ -68,8 +77,13 @@ void tsQueueSet(TSQueue* Q, void* data) {
     if (new_node == NULL)
         throwErr("Error: new node data out of memmory!");
 
+<<<<<<< HEAD
     memcpy(new_node->data, data, Q->data_size);
     new_node->next = NULL;
+=======
+	memcpy(new_node->data, data, Q->data_size);
+	new_node->next = NULL;
+>>>>>>> 6f93a32f9193544716b5ff1da75bfb5dedd679d4
 
     tsQueueLock(Q);
 
@@ -144,10 +158,17 @@ void tsQueueClear(TSQueue* Q) {
 
             iter = iter->next;
 
+<<<<<<< HEAD
             if (Q->free_func)
                 Q->free_func(delete_node->data);
 
             free(delete_node);
+=======
+			if (Q->free_func)
+				Q->free_func(delete_node->data);
+
+			free(delete_node);
+>>>>>>> 6f93a32f9193544716b5ff1da75bfb5dedd679d4
         } while (iter);
 
         Q->head = Q->tail = NULL;
@@ -162,11 +183,19 @@ void tsQueueFree(TSQueue** Q) {
 
     tsQueueClear((*Q));
     pthread_mutex_destroy(&(*Q)->mutex);
+<<<<<<< HEAD
     pthread_cond_destroy(&(*Q)->set_cond);
     pthread_cond_destroy(&(*Q)->get_cond);
 
     free((*Q));
     (*Q) = NULL;
+=======
+	pthread_cond_destroy(&(*Q)->set_cond);
+    pthread_cond_destroy(&(*Q)->get_cond);
+
+	free((*Q));
+	(*Q) = NULL;
+>>>>>>> 6f93a32f9193544716b5ff1da75bfb5dedd679d4
 
     tsQueueUnlock((*Q));
 }

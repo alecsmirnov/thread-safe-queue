@@ -41,7 +41,11 @@ typedef struct TSQueue {
 } TSQueue;
 
 static inline bool tsQueueIsEmpty(const TSQueue* Q) {
+<<<<<<< HEAD
     return Q->head == NULL;
+=======
+	return Q->head == NULL;
+>>>>>>> 6f93a32f9193544716b5ff1da75bfb5dedd679d4
 }
 
 void tsQueueInit(TSQueue** Q, size_t max_size, size_t data_size, 
