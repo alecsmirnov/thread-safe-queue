@@ -10,8 +10,6 @@
 
 typedef void (*func_ptr)(void*);
 
-typedef int TSQueueWaitType;
-
 typedef enum TSQueueWait {
     TS_NO_WAIT  = 0,
     TS_WAIT_SET = 1,
@@ -35,7 +33,7 @@ typedef struct TSQueue {
 
     func_ptr free_func;
 
-    TSQueueWaitType wait_behavior;
+    TSQueueWait wait_behavior;
 
     pthread_mutex_t mutex;
     pthread_cond_t set_cond;
@@ -47,7 +45,7 @@ static inline bool tsQueueIsEmpty(const TSQueue* Q) {
 }
 
 void tsQueueInit(TSQueue** Q, size_t max_size, size_t data_size, 
-                 func_ptr free_func, TSQueueWaitType wait_behavior);
+                 func_ptr free_func, TSQueueWait wait_behavior);
 
 void tsQueueSet(TSQueue* Q, void* data);
 void* tsQueueGet(TSQueue* Q);

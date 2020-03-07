@@ -12,8 +12,13 @@
 #define bitCheck(val, bit_pos) \
     (val & (1 << bit_pos))
 
+typedef enum TSQueueWaitBit {
+    TS_WAIT_SET_BIT = 0,
+    TS_WAIT_GET_BIT = 1
+} TSQueueWaitBit;
+
 void tsQueueInit(TSQueue** Q, size_t max_size, size_t data_size, 
-                 func_ptr free_func, TSQueueWaitType wait_behavior) {
+                 func_ptr free_func, TSQueueWait wait_behavior) {
     (*Q) = (TSQueue*)malloc(sizeof(TSQueue));
     if ((*Q) == NULL) 
         throwErr("Error: out of memmory!");
@@ -68,7 +73,7 @@ void tsQueueSet(TSQueue* Q, void* data) {
 
     tsQueueLock(Q);
 
-    if (bitCheck(Q->wait_behavior, TS_WAIT_SET - 1))
+    if (bitCheck(Q->wait_behavior, TS_WAIT_SET_BIT))
         while (Q->size == Q->max_size) {
             int err = pthread_cond_wait(&Q->set_cond, &Q->mutex);
             if (err != 0)
@@ -97,7 +102,7 @@ void* tsQueueGet(TSQueue* Q) {
 
     tsQueueLock(Q);
 
-    if (bitCheck(Q->wait_behavior, TS_WAIT_GET - 1))
+    if (bitCheck(Q->wait_behavior, TS_WAIT_GET_BIT))
         while (tsQueueIsEmpty(Q)) {
             int err = pthread_cond_wait(&Q->get_cond, &Q->mutex);
             if (err != 0)
@@ -151,6 +156,7 @@ void tsQueueClear(TSQueue* Q) {
 
     tsQueueUnlock(Q);
 }
+
 void tsQueueFree(TSQueue** Q) {
     tsQueueLock((*Q));
 
